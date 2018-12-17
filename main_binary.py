@@ -39,7 +39,7 @@ parser.add_argument('--input_size', type=int, default=None,
                     help='image input size')
 parser.add_argument('--model_config', default='',
                     help='additional architecture configuration')
-parser.add_argument('--type', default='torch.cuda.FloatTensor',
+parser.add_argument('--type', default='torch.FloatTensor',
                     help='type of tensor - e.g torch.cuda.HalfTensor')
 parser.add_argument('--gpus', default='0',
                     help='gpus used for training - e.g 0,1,3')
@@ -230,7 +230,7 @@ def forward(data_loader, model, criterion, epoch=0, training=True, optimizer=Non
         # measure data loading time
         data_time.update(time.time() - end)
         if args.gpus is not None:
-            target = target.cuda(async=True)
+            target = target.cuda()
         input_var = Variable(inputs.type(args.type), volatile=not training)
         target_var = Variable(target)
 
@@ -242,9 +242,9 @@ def forward(data_loader, model, criterion, epoch=0, training=True, optimizer=Non
 
         # measure accuracy and record loss
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-        losses.update(loss.data[0], inputs.size(0))
-        top1.update(prec1[0], inputs.size(0))
-        top5.update(prec5[0], inputs.size(0))
+        losses.update(loss.data.item(), inputs.size(0))
+        top1.update(prec1.item(), inputs.size(0))
+        top5.update(prec5.item(), inputs.size(0))
 
         if training:
             # compute gradient and do SGD step
