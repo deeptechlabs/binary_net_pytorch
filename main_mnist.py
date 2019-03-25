@@ -1,16 +1,28 @@
-
 from __future__ import print_function
+
 import argparse
+import logging
+import os
+import sys
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
+
 from models.binarized_modules import  BinarizeLinear,BinarizeConv2d
-from models.binarized_modules import  Binarize,Ternarize,Ternarize2,Ternarize3,Ternarize4,HingeLoss
+from models.binarized_modules import  Binarize,HingeLoss
+from utils import *
+
+
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+parser.add_argument('--results_dir', metavar='RESULTS_DIR', default='./results',
+                    help='results dir')
+parser.add_argument('--save', metavar='SAVE', default='',
+                    help='saved folder')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 256)')
 parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
@@ -25,7 +37,7 @@ parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
-parser.add_argument('--gpus', default=3,
+parser.add_argument('--gpus', default=0,
                     help='gpus used for training - e.g 0,1,3')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
@@ -36,17 +48,29 @@ torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
+if args.save is '':
+    args.save = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+save_path = os.path.join(args.results_dir, args.save)
+if not os.path.exists(save_path):
+    os.makedirs(save_path)
+
+setup_logging(os.path.join(save_path, 'log.txt'))
+results_file = os.path.join(save_path, 'results.%s')
+results = ResultsLog(results_file % 'csv', results_file % 'html')
+
+logging.info("saving to %s", save_path)
+logging.debug("run arguments: %s", args)
 
 kwargs = {'num_workers': 1, 'pin_memory': True} if args.cuda else {}
 train_loader = torch.utils.data.DataLoader(
-    datasets.MNIST('../data', train=True, download=True,
+    datasets.MNIST('../../data', train=True, download=True,
                    transform=transforms.Compose([
                        transforms.ToTensor(),
                        transforms.Normalize((0.1307,), (0.3081,))
                    ])),
     batch_size=args.batch_size, shuffle=True, **kwargs)
 test_loader = torch.utils.data.DataLoader(
-    datasets.MNIST('../data', train=False, transform=transforms.Compose([
+    datasets.MNIST('../../data', train=False, transform=transforms.Compose([
                        transforms.ToTensor(),
                        transforms.Normalize((0.1307,), (0.3081,))
                    ])),
@@ -121,7 +145,10 @@ def train(epoch):
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.data[0]))
+                100. * batch_idx / len(train_loader), loss.data.item()))
+            logging.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                epoch, batch_idx * len(data), len(train_loader.dataset),
+                100. * batch_idx / len(train_loader), loss.data.item()))
 
 def test():
     model.eval()
